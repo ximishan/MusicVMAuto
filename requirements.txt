@@ -1,0 +1,7 @@
+pywinauto==0.6.9
+pyautogui==0.9.54
+opencv-python==4.10.0.84
+Pillow==10.4.0
+pywin32>=306
+psutil>=5.9
+pyinstaller>=6.10

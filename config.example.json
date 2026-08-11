@@ -1,0 +1,24 @@
+{
+  "base_date": "2026-08-12",
+  "proxy": {
+    "window_title_regex": ".*老鱼.*",
+    "verify_retries": 3,
+    "verify_timeout_seconds": 15,
+    "post_click_wait_seconds": 2.0,
+    "success_mark": "√"
+  },
+  "qqmusic": {
+    "exe_path": "",
+    "launch_timeout_seconds": 30,
+    "playlist_1_relative": null,
+    "playlist_2_relative": null,
+    "popup_button_texts": [
+      "关闭",
+      "取消",
+      "稍后再说",
+      "知道了",
+      "以后再说",
+      "暂不升级"
+    ]
+  }
+}
