@@ -6,6 +6,7 @@ on:
     branches: [ main ]
     paths:
       - 'host_controller.py'
+      - 'host_controller_v054.py'
       - 'requirements-host.txt'
       - 'build_host.bat'
       - '.github/workflows/build-windows-exe.yml'
@@ -35,11 +36,13 @@ jobs:
 
       - name: Syntax check
         shell: cmd
-        run: python -m py_compile host_controller.py
+        run: |
+          python -m py_compile host_controller.py
+          python -m py_compile host_controller_v054.py
 
       - name: Build EXE
         shell: cmd
-        run: pyinstaller --noconfirm --clean --onefile --windowed --uac-admin --collect-all rapidocr --name MusicVMAutoNoTemplate host_controller.py
+        run: pyinstaller --noconfirm --clean --onefile --windowed --uac-admin --collect-all rapidocr --name MusicVMAutoNoTemplate host_controller_v054.py
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
