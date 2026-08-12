@@ -18,8 +18,15 @@ import pyautogui
 import pygetwindow as gw
 from rapidocr import RapidOCR
 
+try:
+    import win32con
+    import win32gui
+except Exception:
+    win32con = None
+    win32gui = None
 
-VERSION = "0.5.1-desktop-icon"
+
+VERSION = "0.5.2-window-restore-ip-state"
 CHECKMARKS = ("√", "✓", "✔", "☑")
 BLOCKING_POPUP_WORDS = ("验证码", "安全验证", "登录保护", "重新登录", "二维码", "网络异常", "风险")
 SAFE_POPUP_BUTTONS = ("稍后再说", "暂不升级", "以后再说", "我知道了", "知道了")
@@ -88,24 +95,127 @@ def playlist_for_today(base_date: str) -> int:
     return ((date.today() - base).days % 2) + 1
 
 
+class NativeWindow:
+    """Win32 window wrapper that still works while the window is minimized."""
+
+    def __init__(self, hwnd: int):
+        self.hwnd = int(hwnd)
+
+    @property
+    def title(self) -> str:
+        return win32gui.GetWindowText(self.hwnd) if win32gui else ""
+
+    def _rect(self):
+        return win32gui.GetWindowRect(self.hwnd)
+
+    @property
+    def left(self) -> int:
+        return int(self._rect()[0])
+
+    @property
+    def top(self) -> int:
+        return int(self._rect()[1])
+
+    @property
+    def width(self) -> int:
+        r = self._rect()
+        return max(1, int(r[2] - r[0]))
+
+    @property
+    def height(self) -> int:
+        r = self._rect()
+        return max(1, int(r[3] - r[1]))
+
+    @property
+    def isMinimized(self) -> bool:
+        return bool(win32gui.IsIconic(self.hwnd))
+
+    def restore(self):
+        if win32gui and win32con:
+            win32gui.ShowWindow(self.hwnd, win32con.SW_RESTORE)
+            time.sleep(0.55)
+
+    def activate(self):
+        if not win32gui or not win32con:
+            return
+        if self.isMinimized:
+            self.restore()
+        try:
+            win32gui.ShowWindow(self.hwnd, win32con.SW_SHOW)
+            win32gui.BringWindowToTop(self.hwnd)
+            win32gui.SetForegroundWindow(self.hwnd)
+        except Exception:
+            try:
+                ctypes.windll.user32.SetForegroundWindow(self.hwnd)
+            except Exception:
+                pass
+        time.sleep(0.4)
+
+
 def find_vmware_window(keyword: str, activate: bool = True):
-    keyword = (keyword or "VMware").strip()
-    windows = [w for w in gw.getAllWindows() if (w.title or "").strip() and w.width > 100 and w.height > 100]
-    matches = [w for w in windows if keyword.lower() in (w.title or "").lower()]
-    if not matches and keyword.lower() != "vmware":
+    """Find VMware even when minimized, then restore it before OCR."""
+    keyword = (keyword or "VMware").strip().lower()
+
+    if win32gui is not None:
+        handles = []
+
+        def enum_cb(hwnd, _):
+            try:
+                title = (win32gui.GetWindowText(hwnd) or "").strip()
+                if not title:
+                    return True
+                low = title.lower()
+                if keyword in low or "vmware" in low:
+                    handles.append(hwnd)
+            except Exception:
+                pass
+            return True
+
+        try:
+            win32gui.EnumWindows(enum_cb, None)
+        except Exception:
+            handles = []
+
+        if handles:
+            def rank(hwnd):
+                title = (win32gui.GetWindowText(hwnd) or "").lower()
+                score = 0
+                if "vmware workstation" in title:
+                    score += 1_000_000_000
+                elif "vmware" in title:
+                    score += 500_000_000
+                if not win32gui.IsIconic(hwnd):
+                    try:
+                        l, t, r, b = win32gui.GetWindowRect(hwnd)
+                        score += max(0, r - l) * max(0, b - t)
+                    except Exception:
+                        pass
+                return score
+
+            win = NativeWindow(max(handles, key=rank))
+            if win.isMinimized:
+                win.restore()
+            if activate:
+                win.activate()
+            return win
+
+    # Fallback for machines where pywin32 is unavailable.
+    windows = [w for w in gw.getAllWindows() if (w.title or "").strip()]
+    matches = [w for w in windows if keyword in (w.title or "").lower()]
+    if not matches and keyword != "vmware":
         matches = [w for w in windows if "vmware" in (w.title or "").lower()]
     if not matches:
         raise RuntimeError("找不到 VMware Workstation 窗口。")
-    win = max(matches, key=lambda w: w.width * w.height)
+    win = max(matches, key=lambda w: max(1, w.width) * max(1, w.height))
     if win.isMinimized:
         win.restore()
-        time.sleep(0.4)
+        time.sleep(0.55)
     if activate:
         try:
             win.activate()
         except Exception:
             pass
-        time.sleep(0.35)
+        time.sleep(0.4)
     return win
 
 
@@ -226,7 +336,7 @@ class MusicVMAuto(tk.Tk):
         super().__init__()
         self.cfg = load_config()
         self.vision = OCRVision(self.log)
-        self.title("MusicVMAuto v0.5.1 - 无模板 IP + QQ音乐")
+        self.title("MusicVMAuto v0.5.2 - 无模板 IP + QQ音乐")
         self.geometry("920x660")
         self.minsize(820, 590)
         self._build()
@@ -235,10 +345,10 @@ class MusicVMAuto(tk.Tk):
     def _build(self):
         root = ttk.Frame(self, padding=12)
         root.pack(fill="both", expand=True)
-        ttk.Label(root, text="MusicVMAuto v0.5.1 - 无模板版", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w")
+        ttk.Label(root, text="MusicVMAuto v0.5.2 - 无模板版", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w")
         ttk.Label(
             root,
-            text="不录模板、不按F8、不保存按钮坐标。宿主机每一步都先截图，用本地中文OCR识别当前文字位置，再决定是否点击。",
+            text="VMware 最小化也会自动找到并恢复。IP 不再强制每次重新识别第二个 Tab；先判断当前页面状态，再决定是否切换。",
             wraplength=880,
         ).pack(anchor="w", pady=(4, 10))
 
@@ -269,15 +379,15 @@ class MusicVMAuto(tk.Tk):
             actions.columnconfigure(col, weight=1)
         ttk.Label(
             actions,
-            text="安全规则：IP只允许点“线路设置/验证所有IP”；QQ只在OCR明确找到桌面“QQ音乐”后双击。识别不到就截图停止，不使用固定坐标，不再发送 Ctrl+G / Win+R 等系统组合键。",
+            text="IP安全规则：已经看到“验证所有IP”就不再重复点“线路设置”；只有确实不在第二个Tab时才切换。验证按钮最多3次。",
             wraplength=870,
         ).grid(row=1, column=0, columnspan=4, sticky="w", pady=(8, 0))
 
-        info = ttk.LabelFrame(root, text="当前 v0.5.1 规则", padding=10)
+        info = ttk.LabelFrame(root, text="当前 v0.5.2 规则", padding=10)
         info.pack(fill="x", pady=10)
         ttk.Label(
             info,
-            text="QQ音乐启动方式已经改为：OCR读取当前虚拟机画面 → 找到桌面“QQ音乐”文字 → 双击图标文字位置 → 等待QQ音乐界面。不会再通过 VMware 抓键盘、Win+R 或输入 EXE 路径。",
+            text="QQ仍然只用OCR双击桌面“QQ音乐”图标启动，不使用 Ctrl+G / Win+R / CMD。VMware若最小化，程序会先恢复窗口再截图识别。",
             wraplength=870,
         ).pack(anchor="w")
 
@@ -289,8 +399,8 @@ class MusicVMAuto(tk.Tk):
     def _startup(self):
         self.log(f"版本：{VERSION}")
         self.log(f"配置文件：{CONFIG_PATH}")
-        self.log("无模板模式：本地OCR来自 RapidOCR，正常运行不需要联网识别。")
-        self.log("QQ启动已禁用所有 Ctrl+G / Win+R / 命令输入，只允许 OCR 双击桌面 QQ音乐图标。")
+        self.log("VMware窗口查找已改用 Win32：窗口最小化时也能找到并自动恢复。")
+        self.log("IP流程已改为状态判断：已在线路设置页时不会再次强制寻找/点击第二个Tab。")
 
     def log(self, msg):
         text = f"[{datetime.now().strftime('%H:%M:%S')}] {msg}"
@@ -337,29 +447,97 @@ class MusicVMAuto(tk.Tk):
         if not texts:
             raise RuntimeError("OCR没有识别到文字，请确认虚拟机画面可见、未锁屏。")
 
+    def find_verify_button(self, items, min_score):
+        return self.vision.find(items, ("验证所有IP", "验证所有 IP"), min_score=max(0.38, min_score - 0.06), contains=True)
+
+    def ip_success_with_page_hint(self, items) -> bool:
+        # 当“验证所有IP”OCR临时漏识别时，用“可用 + √”共同证明仍处于线路设置页。
+        available = self.vision.find(items, ("可用",), min_score=0.35, contains=True)
+        if not available:
+            return False
+        return self.vision.has_checkmark(items)
+
     def ip_flow(self):
         win = self.current_vm()
         min_score = float(self.cfg["ocr_min_score"])
-        self.log("开始 IP 验证：无模板、无固定坐标。")
+        self.log("开始 IP 验证：先判断当前页面，再决定是否切换线路设置。")
 
         _, items = self.vision.scan(win)
-        tab = self.vision.find(items, ("线路设置",), min_score=min_score)
-        if not tab:
-            path = save_failure(win, "ip-no-line-settings")
-            raise RuntimeError(f"OCR没有找到“线路设置”，已停止。截图：{path}")
-        self.vision.click_item(win, tab, "线路设置")
-        time.sleep(0.8)
+        verify = self.find_verify_button(items, min_score)
 
+        if verify:
+            self.log("当前已经在线路设置页：识别到“验证所有IP”，不再重复点击第二个Tab。")
+        elif self.ip_success_with_page_hint(items):
+            self.log("当前页面识别到“可用 + √”，确认已经在线路设置页且IP可用。")
+            return True
+        else:
+            # OCR可能偶发漏掉Tab文字，先重新扫描几次，避免一次漏识别就失败。
+            tab = None
+            for scan_no in range(1, 4):
+                tab = self.vision.find(items, ("线路设置",), min_score=max(0.38, min_score - 0.06), contains=True)
+                if tab:
+                    break
+                if scan_no < 3:
+                    self.log(f"第 {scan_no} 次未识别到“线路设置”，等待后重新OCR。")
+                    time.sleep(0.55)
+                    _, items = self.vision.scan(win)
+                    verify = self.find_verify_button(items, min_score)
+                    if verify:
+                        self.log("重新OCR后发现“验证所有IP”，说明其实已经在线路设置页。")
+                        break
+                    if self.ip_success_with_page_hint(items):
+                        self.log("重新OCR后发现“可用 + √”，IP已经成功。")
+                        return True
+
+            if not verify:
+                if not tab:
+                    path = save_failure(win, "ip-page-state-unknown")
+                    raise RuntimeError(f"既没有识别到“验证所有IP”，也没有识别到“线路设置”，已停止。截图：{path}")
+
+                self.vision.click_item(win, tab, "线路设置")
+                self.log("已点击线路设置；后面只检查页面结果，不会再次寻找/点击第二个Tab。")
+
+                verify = None
+                for wait_no in range(1, 5):
+                    time.sleep(0.55)
+                    _, items = self.vision.scan(win)
+                    verify = self.find_verify_button(items, min_score)
+                    if verify:
+                        self.log("切换完成：已识别到“验证所有IP”。")
+                        break
+                    if self.ip_success_with_page_hint(items):
+                        self.log("切换完成后识别到“可用 + √”，IP已经成功。")
+                        return True
+                    self.log(f"切换线路设置后第 {wait_no}/4 次OCR暂未识别到验证按钮，继续等待。")
+
+                if not verify:
+                    path = save_failure(win, "ip-tab-switched-but-no-verify")
+                    raise RuntimeError(f"已经点击“线路设置”，但多次OCR仍未找到“验证所有IP”。截图：{path}")
+
+        # 已确认当前就是线路设置页。从这里开始绝不再找第二个Tab。
         for attempt in range(1, 4):
             _, items = self.vision.scan(win)
             if self.vision.has_checkmark(items):
                 self.log("IP 已经显示验证成功符号，不再点击。")
                 return True
 
-            verify = self.vision.find(items, ("验证所有IP", "验证所有 IP"), min_score=min_score)
+            verify = self.find_verify_button(items, min_score)
+            if not verify:
+                # 验证按钮偶发漏OCR时重扫，不回头找Tab。
+                for retry_scan in range(1, 4):
+                    time.sleep(0.45)
+                    _, items = self.vision.scan(win)
+                    if self.vision.has_checkmark(items):
+                        self.log("重扫时检测到 √，IP验证成功。")
+                        return True
+                    verify = self.find_verify_button(items, min_score)
+                    if verify:
+                        break
+                    self.log(f"验证按钮OCR漏识别，重扫 {retry_scan}/3。")
+
             if not verify:
                 path = save_failure(win, f"ip-no-verify-button-{attempt}")
-                raise RuntimeError(f"OCR没有可靠找到“验证所有IP”，为防止误点已停止。截图：{path}")
+                raise RuntimeError(f"已确认在线路设置页，但连续多次OCR都没找到“验证所有IP”，为防误点已停止。截图：{path}")
 
             self.log(f"IP验证第 {attempt}/3 次。")
             self.vision.click_item(win, verify, "验证所有IP")
@@ -374,7 +552,7 @@ class MusicVMAuto(tk.Tk):
                     return True
 
             if attempt < 3:
-                self.log("本次等待结束仍未OCR识别到 √，只重试“验证所有IP”。")
+                self.log("本次等待结束仍未识别到 √，只重试“验证所有IP”，不会再点击Tab。")
 
         path = save_failure(win, "ip-no-checkmark-after-3")
         raise RuntimeError(f"验证所有IP已点击3次，仍未检测到√。截图：{path}")
@@ -384,30 +562,27 @@ class MusicVMAuto(tk.Tk):
         return sum(1 for word in QQ_READY_WORDS if normalize(word) in recognized)
 
     def find_desktop_qq_icon(self, win, items: list[OCRItem]):
-        width, height = int(win.width), int(win.height)
+        height = int(win.height)
         min_score = float(self.cfg["ocr_min_score"])
+        names = {normalize(x) for x in QQ_DESKTOP_NAMES}
         hits = []
         for item in items:
             if item.score < min_score:
                 continue
-            if normalize(item.text) not in {normalize(x) for x in QQ_DESKTOP_NAMES}:
+            if normalize(item.text) not in names:
                 continue
-            # 排除 VMware 顶部菜单/标签栏和底部任务栏区域；桌面图标允许在其余任意位置。
             if item.cy < int(height * 0.12) or item.cy > int(height * 0.92):
                 continue
-            # 桌面快捷方式文字通常不高；避免把大型窗口标题误认为桌面图标。
             if item.height > 55:
                 continue
             hits.append(item)
         if not hits:
             return None
-        # 桌面图标通常靠左；优先靠左，其次 OCR 置信度高。
         hits.sort(key=lambda i: (i.cx, -i.score))
         return hits[0]
 
     def start_qq_from_desktop(self, win):
         self.log("启动 QQ音乐：只使用 OCR 查找桌面“QQ音乐”图标，不发送任何系统组合键。")
-
         _, items = self.vision.scan(win)
         if self.qq_ready_score(items) >= 2:
             self.log("当前画面已经是 QQ音乐主界面，不重复启动。")
