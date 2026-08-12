@@ -26,7 +26,7 @@ except Exception:
     win32gui = None
 
 
-VERSION = "0.5.2-window-restore-ip-state"
+VERSION = "0.5.3-verified-tab-click"
 CHECKMARKS = ("√", "✓", "✔", "☑")
 BLOCKING_POPUP_WORDS = ("验证码", "安全验证", "登录保护", "重新登录", "二维码", "网络异常", "风险")
 SAFE_POPUP_BUTTONS = ("稍后再说", "暂不升级", "以后再说", "我知道了", "知道了")
@@ -199,7 +199,6 @@ def find_vmware_window(keyword: str, activate: bool = True):
                 win.activate()
             return win
 
-    # Fallback for machines where pywin32 is unavailable.
     windows = [w for w in gw.getAllWindows() if (w.title or "").strip()]
     matches = [w for w in windows if keyword in (w.title or "").lower()]
     if not matches and keyword != "vmware":
@@ -313,12 +312,22 @@ class OCRVision:
     def click_item(self, win, item: OCRItem, label: str):
         x, y = self.screen_point(win, item)
         self.log(f"OCR识别“{label}” -> ({x},{y})，置信度={item.score:.3f}")
+        try:
+            win.activate()
+        except Exception:
+            pass
         pyautogui.moveTo(x, y, duration=0.18)
-        pyautogui.click()
+        pyautogui.mouseDown(button="left")
+        time.sleep(0.07)
+        pyautogui.mouseUp(button="left")
 
     def double_click_item(self, win, item: OCRItem, label: str):
         x, y = self.screen_point(win, item)
         self.log(f"OCR识别桌面“{label}” -> ({x},{y})，置信度={item.score:.3f}；执行双击。")
+        try:
+            win.activate()
+        except Exception:
+            pass
         pyautogui.moveTo(x, y, duration=0.18)
         pyautogui.doubleClick(x, y, interval=0.16)
 
@@ -336,7 +345,7 @@ class MusicVMAuto(tk.Tk):
         super().__init__()
         self.cfg = load_config()
         self.vision = OCRVision(self.log)
-        self.title("MusicVMAuto v0.5.2 - 无模板 IP + QQ音乐")
+        self.title("MusicVMAuto v0.5.3 - 无模板 IP + QQ音乐")
         self.geometry("920x660")
         self.minsize(820, 590)
         self._build()
@@ -345,12 +354,8 @@ class MusicVMAuto(tk.Tk):
     def _build(self):
         root = ttk.Frame(self, padding=12)
         root.pack(fill="both", expand=True)
-        ttk.Label(root, text="MusicVMAuto v0.5.2 - 无模板版", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w")
-        ttk.Label(
-            root,
-            text="VMware 最小化也会自动找到并恢复。IP 不再强制每次重新识别第二个 Tab；先判断当前页面状态，再决定是否切换。",
-            wraplength=880,
-        ).pack(anchor="w", pady=(4, 10))
+        ttk.Label(root, text="MusicVMAuto v0.5.3 - 无模板版", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w")
+        ttk.Label(root, text="线路设置点击后必须验证页面确实切换；如果第一次点击只激活了 VMware，没有切换 Tab，会重新识别并只重试同一个安全 Tab。", wraplength=880).pack(anchor="w", pady=(4, 10))
 
         cfg = ttk.LabelFrame(root, text="配置", padding=10)
         cfg.pack(fill="x")
@@ -377,19 +382,10 @@ class MusicVMAuto(tk.Tk):
         ttk.Button(actions, text="完整：IP → QQ", command=lambda: self.run_bg(self.full_flow)).grid(row=0, column=3, padx=5, pady=4, sticky="ew")
         for col in range(4):
             actions.columnconfigure(col, weight=1)
-        ttk.Label(
-            actions,
-            text="IP安全规则：已经看到“验证所有IP”就不再重复点“线路设置”；只有确实不在第二个Tab时才切换。验证按钮最多3次。",
-            wraplength=870,
-        ).grid(row=1, column=0, columnspan=4, sticky="w", pady=(8, 0))
 
-        info = ttk.LabelFrame(root, text="当前 v0.5.2 规则", padding=10)
+        info = ttk.LabelFrame(root, text="当前 v0.5.3 规则", padding=10)
         info.pack(fill="x", pady=10)
-        ttk.Label(
-            info,
-            text="QQ仍然只用OCR双击桌面“QQ音乐”图标启动，不使用 Ctrl+G / Win+R / CMD。VMware若最小化，程序会先恢复窗口再截图识别。",
-            wraplength=870,
-        ).pack(anchor="w")
+        ttk.Label(info, text="VMware 最小化会自动恢复；IP先判断是否已经在线路设置页；需要切换时，线路设置最多尝试3次，每次都重新OCR定位，只有看到“验证所有IP”或“可用+√”才算切换成功。QQ仍然只用OCR双击桌面图标。", wraplength=870).pack(anchor="w")
 
         logf = ttk.LabelFrame(root, text="运行日志", padding=8)
         logf.pack(fill="both", expand=True)
@@ -399,8 +395,7 @@ class MusicVMAuto(tk.Tk):
     def _startup(self):
         self.log(f"版本：{VERSION}")
         self.log(f"配置文件：{CONFIG_PATH}")
-        self.log("VMware窗口查找已改用 Win32：窗口最小化时也能找到并自动恢复。")
-        self.log("IP流程已改为状态判断：已在线路设置页时不会再次强制寻找/点击第二个Tab。")
+        self.log("线路设置点击现在使用鼠标按下/释放，并且点击后必须验证页面状态；不会再把“调用了click”误写成“切换成功”。")
 
     def log(self, msg):
         text = f"[{datetime.now().strftime('%H:%M:%S')}] {msg}"
@@ -451,11 +446,53 @@ class MusicVMAuto(tk.Tk):
         return self.vision.find(items, ("验证所有IP", "验证所有 IP"), min_score=max(0.38, min_score - 0.06), contains=True)
 
     def ip_success_with_page_hint(self, items) -> bool:
-        # 当“验证所有IP”OCR临时漏识别时，用“可用 + √”共同证明仍处于线路设置页。
         available = self.vision.find(items, ("可用",), min_score=0.35, contains=True)
         if not available:
             return False
         return self.vision.has_checkmark(items)
+
+    def confirm_line_settings_page(self, items, min_score):
+        verify = self.find_verify_button(items, min_score)
+        if verify:
+            return "verify", verify
+        if self.ip_success_with_page_hint(items):
+            return "success", None
+        return None, None
+
+    def switch_to_line_settings(self, win, initial_items, min_score):
+        items = initial_items
+        for click_try in range(1, 4):
+            tab = self.vision.find(items, ("线路设置",), min_score=max(0.38, min_score - 0.06), contains=True)
+            if not tab:
+                self.log(f"切换线路设置第 {click_try}/3 次：本轮没识别到Tab，重新OCR。")
+                time.sleep(0.55)
+                _, items = self.vision.scan(win)
+                state, verify = self.confirm_line_settings_page(items, min_score)
+                if state:
+                    return state, verify
+                continue
+
+            self.log(f"切换线路设置第 {click_try}/3 次：已定位Tab，发送点击。")
+            self.vision.click_item(win, tab, "线路设置")
+            time.sleep(0.45)
+
+            # 点击以后必须重新截图确认。第一次点击可能仅用于激活 VMware 窗口。
+            for verify_scan in range(1, 3):
+                _, items = self.vision.scan(win)
+                state, verify = self.confirm_line_settings_page(items, min_score)
+                if state == "verify":
+                    self.log("已确认线路设置页面切换成功：看到“验证所有IP”。")
+                    return state, verify
+                if state == "success":
+                    self.log("已确认线路设置页面切换成功，并且已经看到“可用 + √”。")
+                    return state, None
+                if verify_scan < 2:
+                    time.sleep(0.35)
+
+            self.log("本次点击后没有看到线路设置页证据；不假设点击成功，重新定位同一个Tab后再试。")
+
+        path = save_failure(win, "ip-line-settings-click-not-effective")
+        raise RuntimeError(f"已连续3次识别并点击“线路设置”，但页面都没有切换成功。截图：{path}")
 
     def ip_flow(self):
         win = self.current_vm()
@@ -463,58 +500,17 @@ class MusicVMAuto(tk.Tk):
         self.log("开始 IP 验证：先判断当前页面，再决定是否切换线路设置。")
 
         _, items = self.vision.scan(win)
-        verify = self.find_verify_button(items, min_score)
-
-        if verify:
-            self.log("当前已经在线路设置页：识别到“验证所有IP”，不再重复点击第二个Tab。")
-        elif self.ip_success_with_page_hint(items):
-            self.log("当前页面识别到“可用 + √”，确认已经在线路设置页且IP可用。")
+        state, verify = self.confirm_line_settings_page(items, min_score)
+        if state == "success":
+            self.log("当前已经在线路设置页并检测到 √，IP已可用。")
             return True
+        if state == "verify":
+            self.log("当前已经在线路设置页：看到“验证所有IP”，不再点击第二个Tab。")
         else:
-            # OCR可能偶发漏掉Tab文字，先重新扫描几次，避免一次漏识别就失败。
-            tab = None
-            for scan_no in range(1, 4):
-                tab = self.vision.find(items, ("线路设置",), min_score=max(0.38, min_score - 0.06), contains=True)
-                if tab:
-                    break
-                if scan_no < 3:
-                    self.log(f"第 {scan_no} 次未识别到“线路设置”，等待后重新OCR。")
-                    time.sleep(0.55)
-                    _, items = self.vision.scan(win)
-                    verify = self.find_verify_button(items, min_score)
-                    if verify:
-                        self.log("重新OCR后发现“验证所有IP”，说明其实已经在线路设置页。")
-                        break
-                    if self.ip_success_with_page_hint(items):
-                        self.log("重新OCR后发现“可用 + √”，IP已经成功。")
-                        return True
+            state, verify = self.switch_to_line_settings(win, items, min_score)
+            if state == "success":
+                return True
 
-            if not verify:
-                if not tab:
-                    path = save_failure(win, "ip-page-state-unknown")
-                    raise RuntimeError(f"既没有识别到“验证所有IP”，也没有识别到“线路设置”，已停止。截图：{path}")
-
-                self.vision.click_item(win, tab, "线路设置")
-                self.log("已点击线路设置；后面只检查页面结果，不会再次寻找/点击第二个Tab。")
-
-                verify = None
-                for wait_no in range(1, 5):
-                    time.sleep(0.55)
-                    _, items = self.vision.scan(win)
-                    verify = self.find_verify_button(items, min_score)
-                    if verify:
-                        self.log("切换完成：已识别到“验证所有IP”。")
-                        break
-                    if self.ip_success_with_page_hint(items):
-                        self.log("切换完成后识别到“可用 + √”，IP已经成功。")
-                        return True
-                    self.log(f"切换线路设置后第 {wait_no}/4 次OCR暂未识别到验证按钮，继续等待。")
-
-                if not verify:
-                    path = save_failure(win, "ip-tab-switched-but-no-verify")
-                    raise RuntimeError(f"已经点击“线路设置”，但多次OCR仍未找到“验证所有IP”。截图：{path}")
-
-        # 已确认当前就是线路设置页。从这里开始绝不再找第二个Tab。
         for attempt in range(1, 4):
             _, items = self.vision.scan(win)
             if self.vision.has_checkmark(items):
@@ -523,7 +519,6 @@ class MusicVMAuto(tk.Tk):
 
             verify = self.find_verify_button(items, min_score)
             if not verify:
-                # 验证按钮偶发漏OCR时重扫，不回头找Tab。
                 for retry_scan in range(1, 4):
                     time.sleep(0.45)
                     _, items = self.vision.scan(win)
