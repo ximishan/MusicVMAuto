@@ -10,6 +10,9 @@ on:
       - 'build_host.bat'
       - '.github/workflows/build-windows-exe.yml'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -44,3 +47,12 @@ jobs:
           name: MusicVMAutoNoTemplate-Windows
           path: dist/MusicVMAutoNoTemplate.exe
           if-no-files-found: error
+
+      - name: Publish direct EXE to Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.5.${{ github.run_number }}
+          name: MusicVMAuto v0.5 build ${{ github.run_number }}
+          make_latest: true
+          files: dist/MusicVMAutoNoTemplate.exe
+          fail_on_unmatched_files: true
