@@ -19,12 +19,13 @@ import pygetwindow as gw
 from rapidocr import RapidOCR
 
 
-VERSION = "0.5.0-no-template"
+VERSION = "0.5.1-desktop-icon"
 CHECKMARKS = ("√", "✓", "✔", "☑")
 BLOCKING_POPUP_WORDS = ("验证码", "安全验证", "登录保护", "重新登录", "二维码", "网络异常", "风险")
 SAFE_POPUP_BUTTONS = ("稍后再说", "暂不升级", "以后再说", "我知道了", "知道了")
 QQ_READY_WORDS = ("QQ音乐", "音乐馆", "我喜欢", "本地和下载", "创建的歌单", "自建歌单", "我的歌单")
 PLAYLIST_HEADINGS = ("创建的歌单", "自建歌单", "我的歌单")
+QQ_DESKTOP_NAMES = ("QQ音乐",)
 
 
 def app_dir() -> Path:
@@ -55,7 +56,6 @@ FAILURE_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_CONFIG = {
     "vmware_title_keyword": "VMware",
     "base_date": "2026-08-11",
-    "qqmusic_exe": r"C:\Program Files (x86)\Tencent\QQMusic\QQMusic.exe",
     "ocr_min_score": 0.46,
     "ip_result_wait_seconds": 8,
     "qq_start_timeout_seconds": 45,
@@ -141,6 +141,10 @@ class OCRItem:
     def cy(self) -> int:
         return (self.y1 + self.y2) // 2
 
+    @property
+    def height(self) -> int:
+        return max(1, self.y2 - self.y1)
+
 
 class OCRVision:
     def __init__(self, log):
@@ -166,8 +170,10 @@ class OCRVision:
             return image, items
         for box, text, score in zip(boxes, txts, scores):
             pts = np.asarray(box, dtype=float)
-            x1 = int(np.min(pts[:, 0])); y1 = int(np.min(pts[:, 1]))
-            x2 = int(np.max(pts[:, 0])); y2 = int(np.max(pts[:, 1]))
+            x1 = int(np.min(pts[:, 0]))
+            y1 = int(np.min(pts[:, 1]))
+            x2 = int(np.max(pts[:, 0]))
+            y2 = int(np.max(pts[:, 1]))
             items.append(OCRItem(str(text), float(score), x1, y1, x2, y2))
         return image, items
 
@@ -200,6 +206,12 @@ class OCRVision:
         pyautogui.moveTo(x, y, duration=0.18)
         pyautogui.click()
 
+    def double_click_item(self, win, item: OCRItem, label: str):
+        x, y = self.screen_point(win, item)
+        self.log(f"OCR识别桌面“{label}” -> ({x},{y})，置信度={item.score:.3f}；执行双击。")
+        pyautogui.moveTo(x, y, duration=0.18)
+        pyautogui.doubleClick(x, y, interval=0.16)
+
     def has_checkmark(self, items: list[OCRItem]) -> bool:
         for item in items:
             raw = item.text or ""
@@ -214,16 +226,16 @@ class MusicVMAuto(tk.Tk):
         super().__init__()
         self.cfg = load_config()
         self.vision = OCRVision(self.log)
-        self.title("MusicVMAuto v0.5 - 无模板 IP + QQ音乐")
-        self.geometry("920x690")
-        self.minsize(820, 620)
+        self.title("MusicVMAuto v0.5.1 - 无模板 IP + QQ音乐")
+        self.geometry("920x660")
+        self.minsize(820, 590)
         self._build()
         self.after(300, self._startup)
 
     def _build(self):
         root = ttk.Frame(self, padding=12)
         root.pack(fill="both", expand=True)
-        ttk.Label(root, text="MusicVMAuto v0.5 - 无模板版", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w")
+        ttk.Label(root, text="MusicVMAuto v0.5.1 - 无模板版", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w")
         ttk.Label(
             root,
             text="不录模板、不按F8、不保存按钮坐标。宿主机每一步都先截图，用本地中文OCR识别当前文字位置，再决定是否点击。",
@@ -234,13 +246,10 @@ class MusicVMAuto(tk.Tk):
         cfg.pack(fill="x")
         self.vm_var = tk.StringVar(value=self.cfg["vmware_title_keyword"])
         self.base_var = tk.StringVar(value=self.cfg["base_date"])
-        self.qq_var = tk.StringVar(value=self.cfg["qqmusic_exe"])
         ttk.Label(cfg, text="VMware标题关键字").grid(row=0, column=0, sticky="w")
         ttk.Entry(cfg, textvariable=self.vm_var, width=22).grid(row=0, column=1, sticky="w", padx=6)
         ttk.Label(cfg, text="歌单1基准日期").grid(row=1, column=0, sticky="w", pady=(6, 0))
         ttk.Entry(cfg, textvariable=self.base_var, width=18).grid(row=1, column=1, sticky="w", padx=6, pady=(6, 0))
-        ttk.Label(cfg, text="QQMusic.exe（虚拟机内）").grid(row=2, column=0, sticky="w", pady=(6, 0))
-        ttk.Entry(cfg, textvariable=self.qq_var, width=67).grid(row=2, column=1, columnspan=3, sticky="ew", padx=6, pady=(6, 0))
         ttk.Button(cfg, text="保存配置", command=self.save_ui).grid(row=0, column=3, rowspan=2, padx=6, sticky="ns")
         cfg.columnconfigure(2, weight=1)
 
@@ -260,15 +269,15 @@ class MusicVMAuto(tk.Tk):
             actions.columnconfigure(col, weight=1)
         ttk.Label(
             actions,
-            text="安全规则：IP流程只允许OCR命中“线路设置”和“验证所有IP”后点击；验证按钮最多3次。识别不到就截图并停止当前步骤，不做固定坐标兜底。",
+            text="安全规则：IP只允许点“线路设置/验证所有IP”；QQ只在OCR明确找到桌面“QQ音乐”后双击。识别不到就截图停止，不使用固定坐标，不再发送 Ctrl+G / Win+R 等系统组合键。",
             wraplength=870,
         ).grid(row=1, column=0, columnspan=4, sticky="w", pady=(8, 0))
 
-        info = ttk.LabelFrame(root, text="当前 v0.5 规则", padding=10)
+        info = ttk.LabelFrame(root, text="当前 v0.5.1 规则", padding=10)
         info.pack(fill="x", pady=10)
         ttk.Label(
             info,
-            text="QQ音乐通过 VMware 键盘抓取后 Win+R 启动；等待OCR识别QQ音乐界面；自动寻找左侧“创建的歌单/自建歌单/我的歌单”，按今天选择第1或第2个歌单，再OCR寻找“播放全部”。验证码、重新登录、安全验证等界面不会自动处理。",
+            text="QQ音乐启动方式已经改为：OCR读取当前虚拟机画面 → 找到桌面“QQ音乐”文字 → 双击图标文字位置 → 等待QQ音乐界面。不会再通过 VMware 抓键盘、Win+R 或输入 EXE 路径。",
             wraplength=870,
         ).pack(anchor="w")
 
@@ -281,6 +290,7 @@ class MusicVMAuto(tk.Tk):
         self.log(f"版本：{VERSION}")
         self.log(f"配置文件：{CONFIG_PATH}")
         self.log("无模板模式：本地OCR来自 RapidOCR，正常运行不需要联网识别。")
+        self.log("QQ启动已禁用所有 Ctrl+G / Win+R / 命令输入，只允许 OCR 双击桌面 QQ音乐图标。")
 
     def log(self, msg):
         text = f"[{datetime.now().strftime('%H:%M:%S')}] {msg}"
@@ -293,7 +303,6 @@ class MusicVMAuto(tk.Tk):
     def save_ui(self):
         self.cfg["vmware_title_keyword"] = self.vm_var.get().strip() or "VMware"
         self.cfg["base_date"] = self.base_var.get().strip() or DEFAULT_CONFIG["base_date"]
-        self.cfg["qqmusic_exe"] = self.qq_var.get().strip() or DEFAULT_CONFIG["qqmusic_exe"]
         save_config(self.cfg)
         self._refresh_today()
         self.log("配置已保存。")
@@ -316,14 +325,7 @@ class MusicVMAuto(tk.Tk):
         threading.Thread(target=worker, daemon=True).start()
 
     def current_vm(self):
-        self.save_ui_threadsafe()
         return find_vmware_window(self.cfg["vmware_title_keyword"], activate=True)
-
-    def save_ui_threadsafe(self):
-        if threading.current_thread() is threading.main_thread():
-            self.save_ui()
-            return
-        # 后台线程只使用上一次点击“保存配置”时的值；GUI默认值启动时已加载。
 
     def diagnose_ocr(self):
         win = self.current_vm()
@@ -361,7 +363,6 @@ class MusicVMAuto(tk.Tk):
 
             self.log(f"IP验证第 {attempt}/3 次。")
             self.vision.click_item(win, verify, "验证所有IP")
-            # 避免鼠标停在表格结果区域干扰后续截图。
             pyautogui.moveTo(int(win.left + win.width - 12), int(win.top + 40), duration=0.12)
 
             deadline = time.time() + int(self.cfg["ip_result_wait_seconds"])
@@ -378,24 +379,48 @@ class MusicVMAuto(tk.Tk):
         path = save_failure(win, "ip-no-checkmark-after-3")
         raise RuntimeError(f"验证所有IP已点击3次，仍未检测到√。截图：{path}")
 
-    def grab_guest_keyboard(self, win):
-        try:
-            win.activate()
-        except Exception:
-            pass
-        time.sleep(0.25)
-        # VMware Workstation 默认 Ctrl+G 为“抓取输入到虚拟机”。
-        pyautogui.hotkey("ctrl", "g")
-        time.sleep(0.35)
+    def qq_ready_score(self, items: list[OCRItem]) -> int:
+        recognized = {normalize(i.text) for i in items if i.score >= 0.44}
+        return sum(1 for word in QQ_READY_WORDS if normalize(word) in recognized)
 
-    def start_qq_in_guest(self, win):
-        path = self.cfg["qqmusic_exe"]
-        self.log("通过 VMware Ctrl+G → Win+R 启动 QQ音乐：" + path)
-        self.grab_guest_keyboard(win)
-        pyautogui.hotkey("win", "r")
-        time.sleep(0.7)
-        pyautogui.write('"' + path + '"', interval=0.008)
-        pyautogui.press("enter")
+    def find_desktop_qq_icon(self, win, items: list[OCRItem]):
+        width, height = int(win.width), int(win.height)
+        min_score = float(self.cfg["ocr_min_score"])
+        hits = []
+        for item in items:
+            if item.score < min_score:
+                continue
+            if normalize(item.text) not in {normalize(x) for x in QQ_DESKTOP_NAMES}:
+                continue
+            # 排除 VMware 顶部菜单/标签栏和底部任务栏区域；桌面图标允许在其余任意位置。
+            if item.cy < int(height * 0.12) or item.cy > int(height * 0.92):
+                continue
+            # 桌面快捷方式文字通常不高；避免把大型窗口标题误认为桌面图标。
+            if item.height > 55:
+                continue
+            hits.append(item)
+        if not hits:
+            return None
+        # 桌面图标通常靠左；优先靠左，其次 OCR 置信度高。
+        hits.sort(key=lambda i: (i.cx, -i.score))
+        return hits[0]
+
+    def start_qq_from_desktop(self, win):
+        self.log("启动 QQ音乐：只使用 OCR 查找桌面“QQ音乐”图标，不发送任何系统组合键。")
+
+        _, items = self.vision.scan(win)
+        if self.qq_ready_score(items) >= 2:
+            self.log("当前画面已经是 QQ音乐主界面，不重复启动。")
+            return items
+
+        icon = self.find_desktop_qq_icon(win, items)
+        if not icon:
+            path = save_failure(win, "qq-desktop-icon-not-found")
+            raise RuntimeError(f"OCR没有找到虚拟机桌面的“QQ音乐”图标。没有发送任何快捷键。截图：{path}")
+
+        self.vision.double_click_item(win, icon, "QQ音乐")
+        time.sleep(1.0)
+        return None
 
     def scan_for_blocking_popup(self, items):
         for word in BLOCKING_POPUP_WORDS:
@@ -405,7 +430,6 @@ class MusicVMAuto(tk.Tk):
         return None
 
     def try_close_safe_popup(self, win, items):
-        # 只点语义非常明确的低风险按钮，不自动点“确定/取消/关闭”等泛化文字。
         w, h = int(win.width), int(win.height)
         region = (int(w * 0.15), int(h * 0.12), int(w * 0.90), int(h * 0.90))
         hit = self.vision.find(items, SAFE_POPUP_BUTTONS, min_score=0.48, region=region)
@@ -426,14 +450,13 @@ class MusicVMAuto(tk.Tk):
                 raise RuntimeError(f"检测到需要人工处理的QQ界面“{blocking}”，未自动点击。截图：{path}")
             if self.try_close_safe_popup(win, items):
                 continue
-            recognized = {normalize(i.text) for i in items if i.score >= 0.44}
-            ready_hits = sum(1 for word in QQ_READY_WORDS if normalize(word) in recognized)
-            if ready_hits >= 2 or (normalize("QQ音乐") in recognized and ready_hits >= 1):
+            ready_hits = self.qq_ready_score(items)
+            if ready_hits >= 2:
                 self.log(f"QQ音乐界面已就绪，命中 {ready_hits} 个界面标志。")
                 return items
             time.sleep(1.2)
         path = save_failure(win, "qq-not-ready")
-        raise RuntimeError(f"等待QQ音乐加载超时。截图：{path}")
+        raise RuntimeError(f"双击桌面QQ音乐后等待加载超时。截图：{path}")
 
     def playlist_candidates(self, win, items, heading: OCRItem):
         width, height = int(win.width), int(win.height)
@@ -471,12 +494,12 @@ class MusicVMAuto(tk.Tk):
         win = self.current_vm()
         target_index = playlist_for_today(self.cfg["base_date"])
         self.log(f"开始 QQ音乐流程；今天目标：第 {target_index} 个歌单。")
-        self.start_qq_in_guest(win)
-        items = self.wait_qq_ready(win)
+
+        ready_items = self.start_qq_from_desktop(win)
+        items = ready_items if ready_items is not None else self.wait_qq_ready(win)
 
         heading = self.vision.find(items, PLAYLIST_HEADINGS, min_score=0.43)
         if not heading:
-            # 主界面加载后可能需要再扫一次侧栏。
             time.sleep(1.0)
             _, items = self.vision.scan(win)
             heading = self.vision.find(items, PLAYLIST_HEADINGS, min_score=0.43)
