@@ -8,7 +8,7 @@
 
 v0.5 已经废弃固定坐标和人工模板录制，改成 **本地中文 OCR 识别**：每一步先截图读取当前虚拟机画面中的文字，再决定是否点击。
 
-## v0.5：无模板 IP + QQ 音乐
+## v0.5.1：无模板 IP + QQ 音乐
 
 入口：
 
@@ -53,22 +53,28 @@ OCR 找“线路设置”
 
 ## QQ 音乐逻辑
 
-虚拟机内默认启动路径：
-
-```text
-C:\Program Files (x86)\Tencent\QQMusic\QQMusic.exe
-```
-
-宿主机激活 VMware 后使用：
+v0.5.1 已经 **彻底删除** 下面这条启动方式：
 
 ```text
 Ctrl + G
 → Win + R
-→ 输入 QQMusic.exe 完整路径
-→ Enter
+→ 输入 QQMusic.exe 路径
 ```
 
-然后：
+原因是 VMware 环境中系统级组合键可能被虚拟机或宿主机解释成其他操作。
+
+现在 QQ 音乐只使用：
+
+```text
+OCR 读取当前虚拟机画面
+→ 找到桌面“QQ音乐”文字
+→ 双击桌面图标文字位置
+→ 等待 QQ音乐主界面出现
+```
+
+如果 OCR 找不到桌面 `QQ音乐`，程序会保存截图并停止当前 QQ 步骤，**不会发送任何快捷键，也不会猜坐标点击**。
+
+QQ 打开后继续：
 
 ```text
 OCR 等待 QQ 音乐界面加载
@@ -119,11 +125,10 @@ build_host.bat
 dist\MusicVMAutoNoTemplate.exe
 ```
 
-GitHub Actions Artifact：
+GitHub Actions 同时会：
 
-```text
-MusicVMAutoNoTemplate-Windows
-```
+- 生成 Artifact：`MusicVMAutoNoTemplate-Windows`
+- 在 GitHub Releases 发布可直接下载的 `MusicVMAutoNoTemplate.exe`
 
 ## 下一阶段
 
