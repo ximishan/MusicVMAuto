@@ -15,6 +15,10 @@ import pyautogui
 import pygetwindow as gw
 
 
+VK_F8 = 0x77
+VK_ESCAPE = 0x1B
+
+
 def _set_dpi_awareness():
     if os.name != "nt":
         return
@@ -34,6 +38,12 @@ def _is_admin() -> bool:
         return bool(ctypes.windll.shell32.IsUserAnAdmin())
     except Exception:
         return False
+
+
+def _key_down(vk: int) -> bool:
+    if os.name != "nt":
+        return False
+    return bool(ctypes.windll.user32.GetAsyncKeyState(vk) & 0x8000)
 
 
 def _app_dir() -> Path:
@@ -88,7 +98,7 @@ def playlist_for_today(base_date: str) -> int:
     return ((date.today() - base).days % 2) + 1
 
 
-def find_vmware_window(keyword: str):
+def find_vmware_window(keyword: str, activate: bool = True):
     keyword = (keyword or "VMware").strip()
     all_windows = [w for w in gw.getAllWindows() if (w.title or "").strip()]
     wins = [w for w in all_windows if keyword.lower() in (w.title or "").lower()]
@@ -98,15 +108,17 @@ def find_vmware_window(keyword: str):
         titles = [w.title for w in all_windows if "vm" in (w.title or "").lower()][:10]
         extra = ("\n检测到的疑似窗口：" + " | ".join(titles)) if titles else ""
         raise RuntimeError(f"找不到 VMware 窗口。当前关键字：{keyword}{extra}")
+
     win = max(wins, key=lambda w: max(1, w.width) * max(1, w.height))
     if win.isMinimized:
         win.restore()
         time.sleep(0.5)
-    try:
-        win.activate()
-    except Exception:
-        pass
-    time.sleep(0.5)
+    if activate:
+        try:
+            win.activate()
+        except Exception:
+            pass
+        time.sleep(0.4)
     return win
 
 
@@ -122,9 +134,10 @@ class HostDemo(tk.Tk):
     def __init__(self):
         super().__init__()
         self.cfg = load_config()
-        self.title("MusicVMAuto Host Demo v0.2 - QQ音乐")
-        self.geometry("860x760")
-        self.minsize(780, 680)
+        self.capture_active = False
+        self.title("MusicVMAuto Host Demo v0.3 - QQ音乐")
+        self.geometry("880x780")
+        self.minsize(800, 700)
         self._build()
         self._refresh_today()
         self.after(400, self._startup_notice)
@@ -132,6 +145,7 @@ class HostDemo(tk.Tk):
     def _startup_notice(self):
         self.log(f"配置文件：{CONFIG_PATH}")
         self.log("当前权限：" + ("管理员" if _is_admin() else "普通权限"))
+        self.log("v0.3：记录位置已改为 F8 手动确认，无倒计时。")
         if not _is_admin():
             messagebox.showwarning(
                 "建议管理员权限运行",
@@ -142,8 +156,12 @@ class HostDemo(tk.Tk):
         root = ttk.Frame(self, padding=12)
         root.pack(fill="both", expand=True)
 
-        ttk.Label(root, text="QQ音乐 VMware 宿主机自动化 Demo v0.2", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w")
-        ttk.Label(root, text="只运行在 VMware 外面的宿主机；虚拟机里不安装任何程序。测试前先校准位置。", wraplength=820).pack(anchor="w", pady=(4, 10))
+        ttk.Label(root, text="QQ音乐 VMware 宿主机自动化 Demo v0.3", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w")
+        ttk.Label(
+            root,
+            text="只运行在 VMware 外面的宿主机；虚拟机里不安装任何程序。记录位置时没有倒计时，移动好鼠标后按 F8 保存。",
+            wraplength=840,
+        ).pack(anchor="w", pady=(4, 10))
 
         perm_text = "管理员权限：是" if _is_admin() else "管理员权限：否（建议右键以管理员身份运行）"
         ttk.Label(root, text=perm_text).pack(anchor="w", pady=(0, 8))
@@ -166,7 +184,7 @@ class HostDemo(tk.Tk):
         ttk.Button(cfgf, text="保存配置", command=self.save_basic).grid(row=0, column=2, rowspan=2, padx=8)
         ttk.Button(cfgf, text="检测 VMware 窗口", command=lambda: self.run_bg(self.detect_vmware)).grid(row=0, column=3, rowspan=2, padx=8)
 
-        cal = ttk.LabelFrame(root, text="A-1 首次校准（先记录位置，再测试点击）", padding=10)
+        cal = ttk.LabelFrame(root, text="A-1 首次校准（记录位置：F8 保存 / Esc 取消）", padding=10)
         cal.pack(fill="x", pady=(0, 10))
         self.status_vars = {}
         items = [
@@ -195,9 +213,13 @@ class HostDemo(tk.Tk):
         for c in range(3):
             actions.columnconfigure(c, weight=1)
 
-        note = ttk.LabelFrame(root, text="测试顺序", padding=10)
+        note = ttk.LabelFrame(root, text="校准方法", padding=10)
         note.pack(fill="x", pady=(0, 10))
-        ttk.Label(note, text="① 检测 VMware 窗口 → ② 记录“线路设置”位置 → ③ 点“只移动鼠标”确认坐标 → ④ 再点“测试点击”。不要在未校准时直接测试。", wraplength=800).pack(anchor="w")
+        ttk.Label(
+            note,
+            text="点“记录位置” → 程序最小化 → 你可以慢慢把鼠标移动到目标按钮中央 → 准备好后按 F8 保存。没有时间限制；按 Esc 取消。保存后先用“只移动鼠标”检查位置，再测试点击。",
+            wraplength=820,
+        ).pack(anchor="w")
 
         logf = ttk.LabelFrame(root, text="运行日志", padding=8)
         logf.pack(fill="both", expand=True)
@@ -233,27 +255,73 @@ class HostDemo(tk.Tk):
         for key, var in self.status_vars.items():
             var.set("已校准" if self.cfg["points"].get(key) else "未校准")
 
-    def capture_point(self, key, label):
-        self.save_basic()
-        messagebox.showinfo("记录位置", f"点确定后有 4 秒。\n\n请把鼠标移动到 VMware 里：{label}\n不要点击，停在那里即可。")
-        self.log(f"4 秒后记录：{label}")
-        threading.Thread(target=self._capture_worker, args=(key, label), daemon=True).start()
+    def _restore_after_capture(self):
+        self.deiconify()
+        self.lift()
+        try:
+            self.focus_force()
+        except Exception:
+            pass
 
-    def _capture_worker(self, key, label):
-        time.sleep(4)
-        win = find_vmware_window(self.cfg["vmware_title_keyword"])
-        time.sleep(0.2)
-        x, y = pyautogui.position()
-        if not (win.left <= x <= win.left + win.width and win.top <= y <= win.top + win.height):
-            self.log(f"记录失败：鼠标 ({x},{y}) 不在 VMware 窗口内。")
-            self.after(0, lambda: messagebox.showerror("记录失败", "鼠标没有停在 VMware 窗口内，请重新记录。"))
+    def capture_point(self, key, label):
+        if self.capture_active:
+            messagebox.showwarning("正在记录", "已经有一个位置正在等待记录。请先按 F8 保存或按 Esc 取消。")
             return
-        rx = (x - win.left) / max(1, win.width)
-        ry = (y - win.top) / max(1, win.height)
-        self.cfg["points"][key] = {"rx": round(rx, 6), "ry": round(ry, 6)}
-        save_config(self.cfg)
-        self.after(0, self._refresh_status)
-        self.log(f"已记录 {label}：屏幕 ({x},{y})，相对位置 ({rx:.4f}, {ry:.4f})")
+
+        self.save_basic()
+        try:
+            find_vmware_window(self.cfg["vmware_title_keyword"], activate=True)
+        except Exception as e:
+            messagebox.showerror("找不到 VMware", str(e))
+            return
+
+        messagebox.showinfo(
+            "记录位置",
+            f"接下来程序会最小化。\n\n请把鼠标移动到 VMware 里的：{label}\n\n准备好后按 F8 保存。\n按 Esc 取消。\n\n没有倒计时，也不要点击目标按钮。",
+        )
+        self.capture_active = True
+        self.log(f"等待记录：{label}。鼠标移动好后按 F8，Esc 取消。")
+        self.iconify()
+        threading.Thread(target=self._capture_hotkey_worker, args=(key, label), daemon=True).start()
+
+    def _capture_hotkey_worker(self, key, label):
+        try:
+            while _key_down(VK_F8) or _key_down(VK_ESCAPE):
+                time.sleep(0.05)
+
+            while self.capture_active:
+                if _key_down(VK_ESCAPE):
+                    self.capture_active = False
+                    self.log(f"已取消记录：{label}")
+                    self.after(0, self._restore_after_capture)
+                    return
+
+                if _key_down(VK_F8):
+                    x, y = pyautogui.position()
+                    win = find_vmware_window(self.cfg["vmware_title_keyword"], activate=False)
+                    if not (win.left <= x <= win.left + win.width and win.top <= y <= win.top + win.height):
+                        self.capture_active = False
+                        self.log(f"记录失败：鼠标 ({x},{y}) 不在 VMware 窗口内。")
+                        self.after(0, self._restore_after_capture)
+                        self.after(100, lambda: messagebox.showerror("记录失败", "按 F8 时鼠标不在 VMware 窗口内，请重新记录。"))
+                        return
+
+                    rx = (x - win.left) / max(1, win.width)
+                    ry = (y - win.top) / max(1, win.height)
+                    self.cfg["points"][key] = {"rx": round(rx, 6), "ry": round(ry, 6)}
+                    save_config(self.cfg)
+                    self.capture_active = False
+                    self.after(0, self._refresh_status)
+                    self.log(f"已记录 {label}：屏幕 ({x},{y})，相对位置 ({rx:.4f}, {ry:.4f})")
+                    self.after(0, self._restore_after_capture)
+                    return
+
+                time.sleep(0.05)
+        except Exception as e:
+            self.capture_active = False
+            self.log("记录位置错误：" + str(e))
+            self.after(0, self._restore_after_capture)
+            self.after(100, lambda err=str(e): messagebox.showerror("记录失败", err))
 
     def run_bg(self, fn):
         def worker():
