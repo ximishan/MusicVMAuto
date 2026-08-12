@@ -5,8 +5,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'host_demo.py'
-      - 'host_controller.py'
+      - 'host_visual.py'
       - 'requirements-host.txt'
       - 'build_host.bat'
       - '.github/workflows/build-windows-exe.yml'
@@ -31,14 +30,17 @@ jobs:
           python -m pip install -r requirements-host.txt
           python -m pip install pyinstaller
 
+      - name: Syntax check
+        shell: cmd
+        run: python -m py_compile host_visual.py
+
       - name: Build EXE
         shell: cmd
-        run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --uac-admin --name MusicVMAutoHostDemo host_demo.py
+        run: pyinstaller --noconfirm --clean --onefile --windowed --uac-admin --name MusicVMAutoVisual host_visual.py
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MusicVMAutoHostDemo-Windows
-          path: dist/MusicVMAutoHostDemo.exe
+          name: MusicVMAutoVisual-Windows
+          path: dist/MusicVMAutoVisual.exe
           if-no-files-found: error
