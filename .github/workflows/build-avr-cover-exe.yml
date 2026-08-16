@@ -38,6 +38,7 @@ jobs:
           '@ | Set-Content -Encoding UTF8 restore_source.py
           python restore_source.py
           python avr_build/lyrics_preview_patch.py
+          python avr_build/safe_preview_patch.py
           python -m py_compile avr_cover_single_demo.py
 
       - name: Install dependencies
@@ -49,11 +50,11 @@ jobs:
       - name: Build EXE
         shell: cmd
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --name AVR_Cover_Lyrics_Preview_v0.2.5 avr_cover_single_demo.py
+          pyinstaller --noconfirm --clean --onefile --windowed --name AVR_Cover_Safe_Lyrics_Preview_v0.2.6 avr_cover_single_demo.py
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AVR_Cover_Lyrics_Preview_v0.2.5_Windows
-          path: dist/AVR_Cover_Lyrics_Preview_v0.2.5.exe
+          name: AVR_Cover_Safe_Lyrics_Preview_v0.2.6_Windows
+          path: dist/AVR_Cover_Safe_Lyrics_Preview_v0.2.6.exe
           if-no-files-found: error
