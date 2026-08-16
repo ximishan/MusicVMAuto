@@ -40,6 +40,7 @@ jobs:
           python avr_build/lyrics_preview_patch.py
           python avr_build/auto_wait_lyrics_preview_patch.py
           python avr_build/strict_audio_ready_patch.py
+          python avr_build/hard_wait_20s_patch.py
           python -m py_compile avr_cover_single_demo.py
 
       - name: Install dependencies
@@ -51,11 +52,11 @@ jobs:
       - name: Build EXE
         shell: cmd
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --name AVR_Cover_Strict_Audio_Preview_v0.2.8 avr_cover_single_demo.py
+          pyinstaller --noconfirm --clean --onefile --windowed --name AVR_Cover_Audio_20s_Wait_Preview_v0.2.9 avr_cover_single_demo.py
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AVR_Cover_Strict_Audio_Preview_v0.2.8_Windows
-          path: dist/AVR_Cover_Strict_Audio_Preview_v0.2.8.exe
+          name: AVR_Cover_Audio_20s_Wait_Preview_v0.2.9_Windows
+          path: dist/AVR_Cover_Audio_20s_Wait_Preview_v0.2.9.exe
           if-no-files-found: error
