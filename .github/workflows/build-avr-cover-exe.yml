@@ -41,7 +41,30 @@ jobs:
           python avr_build/auto_wait_lyrics_preview_patch.py
           python avr_build/strict_audio_ready_patch.py
           python avr_build/hard_wait_20s_patch.py
+          python avr_build/full_flow_v030_patch.py
           python -m py_compile avr_cover_single_demo.py
+
+      - name: Verify complete-flow markers
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+          s = Path('avr_cover_single_demo.py').read_text(encoding='utf-8')
+          required = [
+              '完整版 v0.3.0',
+              '固定等待 15 秒',
+              '固定等待 20 秒',
+              'confirm_material_and_wait_submit',
+              '固定等待 5 秒后处理下一首',
+          ]
+          for x in required:
+              if x not in s:
+                  raise SystemExit('missing marker: ' + x)
+          if 'return "PREVIEW_LYRICS_READY"' in s:
+              raise SystemExit('preview return still exists')
+          print('complete-flow markers verified')
+          '@ | Set-Content -Encoding UTF8 verify_flow.py
+          python verify_flow.py
 
       - name: Install dependencies
         shell: cmd
@@ -52,11 +75,11 @@ jobs:
       - name: Build EXE
         shell: cmd
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --name AVR_Cover_Audio_20s_Wait_Preview_v0.2.9 avr_cover_single_demo.py
+          pyinstaller --noconfirm --clean --onefile --windowed --name AVR_Cover_Automation_v0.3.0 avr_cover_single_demo.py
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AVR_Cover_Audio_20s_Wait_Preview_v0.2.9_Windows
-          path: dist/AVR_Cover_Audio_20s_Wait_Preview_v0.2.9.exe
+          name: AVR_Cover_Automation_v0.3.0_Windows
+          path: dist/AVR_Cover_Automation_v0.3.0.exe
           if-no-files-found: error
