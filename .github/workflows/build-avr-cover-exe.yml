@@ -49,11 +49,11 @@ jobs:
       - name: Build EXE
         shell: cmd
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --name AVR_Cover_Automation_v0.2.3 avr_cover_single_demo.py
+          pyinstaller --noconfirm --clean --onefile --windowed --name AVR_Cover_Automation_v0.2.4 avr_cover_single_demo.py
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AVR_Cover_Automation_v0.2.3_Windows
-          path: dist/AVR_Cover_Automation_v0.2.3.exe
+          name: AVR_Cover_Automation_v0.2.4_Windows
+          path: dist/AVR_Cover_Automation_v0.2.4.exe
           if-no-files-found: error
