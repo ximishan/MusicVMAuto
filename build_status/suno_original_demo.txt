@@ -1,0 +1,5 @@
+status=started
+run_id=32163151199
+artifact=Suno_Original_Demo_v0.1.0_Windows
+exe=Suno_Original_Demo_v0.1.0.exe
+source_sha=8ce66f2e4ca3e411da6a34ef6cf2430f81bd0eac
