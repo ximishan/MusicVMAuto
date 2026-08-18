@@ -68,3 +68,20 @@ jobs:
             First standalone Windows demo for Suno original-song creation.
             Features: 3 persistent Suno account slots, custom title/lyrics/style, direct original submission, task status refresh.
             Human verification is never bypassed; when Suno requests verification the account window is shown for manual completion.
+
+      - name: Report successful build
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: |
+          New-Item -ItemType Directory -Force build_status | Out-Null
+          @"
+          run_id=${{ github.run_id }}
+          artifact=Suno_Original_Demo_v0.1.0_Windows
+          exe=Suno_Original_Demo_v0.1.0.exe
+          source_sha=${{ github.sha }}
+          "@ | Set-Content -Encoding UTF8 build_status/suno_original_demo.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add build_status/suno_original_demo.txt
+          git commit -m "Record Suno original demo build ${{ github.run_id }}" || exit 0
+          git push
