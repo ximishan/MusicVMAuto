@@ -9,7 +9,7 @@ on:
       - '.github/workflows/build-ai-trace-cleaner.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -40,10 +40,11 @@ jobs:
         run: |
           pyinstaller --noconfirm --clean --onefile --windowed --collect-all imageio_ffmpeg --name AI_Audio_Trace_Cleaner_v0.1.0 audio_deai\ai_trace_cleaner_v010.py
 
-      - name: Smoke test bundled FFmpeg
+      - name: Verify EXE
         shell: pwsh
         run: |
           $exe = Get-Item 'dist\AI_Audio_Trace_Cleaner_v0.1.0.exe'
+          if ($exe.Length -lt 10000000) { throw "EXE unexpectedly small: $($exe.Length)" }
           Write-Host "Built:" $exe.FullName $exe.Length
 
       - name: Upload artifact
@@ -52,3 +53,15 @@ jobs:
           name: AI_Audio_Trace_Cleaner_v0.1.0_Windows
           path: dist/AI_Audio_Trace_Cleaner_v0.1.0.exe
           if-no-files-found: error
+
+      - name: Publish test release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ai-audio-trace-cleaner-v0.1.0
+          name: AI Audio Trace Cleaner v0.1.0
+          prerelease: true
+          make_latest: false
+          files: dist/AI_Audio_Trace_Cleaner_v0.1.0.exe
+          body: |
+            First Windows test build of the standalone audio DSP tool.
+            Bundles FFmpeg through imageio-ffmpeg; no external FFmpeg installation is required.
