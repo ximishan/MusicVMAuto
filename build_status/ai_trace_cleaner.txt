@@ -1,0 +1,4 @@
+run_id=32159911414
+artifact=AI_Audio_Trace_Cleaner_v0.1.0_Windows
+exe=AI_Audio_Trace_Cleaner_v0.1.0.exe
+source_sha=7275fe4214cf0d97dce9a7ae82eb9700cb343202
