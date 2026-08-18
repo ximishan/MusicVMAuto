@@ -11,6 +11,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: ai-trace-cleaner-build
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: windows-latest
@@ -65,3 +69,20 @@ jobs:
           body: |
             First Windows test build of the standalone audio DSP tool.
             Bundles FFmpeg through imageio-ffmpeg; no external FFmpeg installation is required.
+
+      - name: Record build run id
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build_status | Out-Null
+          @"
+          run_id=$env:GITHUB_RUN_ID
+          artifact=AI_Audio_Trace_Cleaner_v0.1.0_Windows
+          exe=AI_Audio_Trace_Cleaner_v0.1.0.exe
+          source_sha=$env:GITHUB_SHA
+          "@ | Set-Content -Encoding UTF8 build_status\ai_trace_cleaner.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add build_status/ai_trace_cleaner.txt
+          git commit -m "Record AI trace cleaner build $env:GITHUB_RUN_ID"
+          git pull --rebase origin main
+          git push origin HEAD:main
