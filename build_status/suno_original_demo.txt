@@ -1,4 +1,4 @@
-status=started
+status=success
 run_id=32163151199
 artifact=Suno_Original_Demo_v0.1.0_Windows
 exe=Suno_Original_Demo_v0.1.0.exe
