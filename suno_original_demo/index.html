@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Suno 原创 Demo</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, "Microsoft YaHei", sans-serif; }
+    body { margin:0; background:#0b0c10; color:#f5f7fb; }
+    .wrap { max-width:1120px; margin:0 auto; padding:24px; }
+    h1 { margin:0 0 6px; font-size:28px; }
+    .sub { color:#9aa3b5; margin-bottom:20px; }
+    .grid { display:grid; grid-template-columns: 320px 1fr; gap:18px; }
+    .card { background:#14161d; border:1px solid #262a35; border-radius:14px; padding:18px; box-shadow:0 10px 30px rgba(0,0,0,.18); }
+    .card h2 { font-size:18px; margin:0 0 14px; }
+    .account { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 0; border-bottom:1px solid #252936; }
+    .account:last-child { border-bottom:none; }
+    .dot { width:9px; height:9px; border-radius:50%; display:inline-block; margin-right:7px; background:#667085; }
+    .dot.ok { background:#32d583; }
+    button { border:0; border-radius:9px; padding:9px 13px; cursor:pointer; background:#2f6fed; color:white; font-weight:600; }
+    button.secondary { background:#252936; color:#d8deea; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    label { display:block; color:#c9d0dd; font-size:13px; margin:12px 0 6px; }
+    input, textarea, select { width:100%; box-sizing:border-box; border:1px solid #303544; background:#0f1117; color:#fff; border-radius:9px; padding:10px 11px; outline:none; }
+    textarea { min-height:270px; resize:vertical; line-height:1.55; }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .row3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; }
+    .actions { display:flex; gap:10px; margin-top:16px; }
+    .log { margin-top:18px; background:#0d0f14; border:1px solid #222633; border-radius:10px; padding:12px; min-height:90px; white-space:pre-wrap; color:#b7c0d1; font-family:Consolas, monospace; font-size:12px; }
+    .task { margin-top:12px; border:1px solid #2b3040; border-radius:10px; padding:12px; background:#10131a; }
+    .track { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-top:1px solid #222633; }
+    .track:first-child { border-top:none; }
+    .status { color:#aab4c8; font-size:12px; }
+    .warn { color:#fdb022; }
+    .oktxt { color:#32d583; }
+    .err { color:#f97066; }
+    .small { font-size:12px; color:#8f98aa; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Suno 原创 Demo v0.1.0</h1>
+    <div class="sub">自定义歌词 + 3 个独立 Suno 登录槽位。Demo 只做原创提交和状态查看，不包含 AVR 授权、公告、母带等功能。</div>
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h2>Suno 账号</h2>
+          <div id="accounts"></div>
+          <div class="actions"><button class="secondary" id="refreshAccounts">刷新登录状态</button></div>
+          <div class="small" style="margin-top:10px">每个槽位使用独立持久化 Session，登录一次后会保留 Cookie。</div>
+        </div>
+        <div class="card" style="margin-top:18px">
+          <h2>当前任务</h2>
+          <div id="taskArea" class="small">还没有提交任务。</div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>原创歌曲</h2>
+        <div class="row">
+          <div><label>歌名</label><input id="title" placeholder="例如：凌晨以后没有你的城市" /></div>
+          <div><label>使用账号</label><select id="slot"><option value="1">账号 1</option><option value="2">账号 2</option><option value="3">账号 3</option></select></div>
+        </div>
+        <label>歌词</label>
+        <textarea id="lyrics" placeholder="把完整歌词直接粘贴到这里……"></textarea>
+        <label>风格提示词</label>
+        <input id="style" placeholder="例如：sad piano pop, intimate female vocal, cinematic, slow tempo" />
+        <div class="row3">
+          <div><label>模型</label><select id="model"><option>v5.5</option><option>v5</option><option>v4.5+</option><option>v4.5-all</option></select></div>
+          <div><label>人声</label><select id="gender"><option value="">不指定</option><option value="female">女声</option><option value="male">男声</option></select></div>
+          <div><label>风格影响</label><input id="styleInfluence" type="number" min="0" max="100" value="50" /></div>
+        </div>
+        <div class="row">
+          <div><label>Weirdness</label><input id="weirdness" type="number" min="0" max="100" value="50" /></div>
+          <div><label>&nbsp;</label><div class="small" style="padding-top:10px">Demo 不自动处理验证码；Suno 要求验证时会打开账号窗口，由你手动完成。</div></div>
+        </div>
+        <div class="actions">
+          <button id="submitBtn">提交原创</button>
+          <button class="secondary" id="refreshTaskBtn" disabled>刷新任务状态</button>
+        </div>
+        <div id="log" class="log">准备就绪。</div>
+      </div>
+    </div>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>
