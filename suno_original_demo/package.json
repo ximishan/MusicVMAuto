@@ -1,0 +1,26 @@
+{
+  "name": "suno-original-demo",
+  "version": "0.1.0",
+  "description": "Standalone Suno original-song demo with 3 persistent account slots",
+  "main": "main.js",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "37.4.0",
+    "electron-builder": "26.0.12"
+  },
+  "build": {
+    "appId": "com.musicvmauto.sunooriginaldemo",
+    "productName": "Suno原创Demo",
+    "asar": true,
+    "files": ["main.js", "preload.js", "index.html", "renderer.js", "package.json"],
+    "win": {
+      "target": [{"target": "portable", "arch": ["x64"]}],
+      "artifactName": "Suno_Original_Demo_v0.1.0.exe"
+    }
+  }
+}
