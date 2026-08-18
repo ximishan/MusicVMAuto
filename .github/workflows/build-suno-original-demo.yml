@@ -22,6 +22,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Report build started
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: |
+          New-Item -ItemType Directory -Force build_status | Out-Null
+          @"
+          status=started
+          run_id=${{ github.run_id }}
+          artifact=Suno_Original_Demo_v0.1.0_Windows
+          exe=Suno_Original_Demo_v0.1.0.exe
+          source_sha=${{ github.sha }}
+          "@ | Set-Content -Encoding UTF8 build_status/suno_original_demo.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add build_status/suno_original_demo.txt
+          git commit -m "Start Suno original demo build ${{ github.run_id }}" || exit 0
+          git push
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -73,15 +91,14 @@ jobs:
         shell: pwsh
         working-directory: ${{ github.workspace }}
         run: |
-          New-Item -ItemType Directory -Force build_status | Out-Null
+          git pull --rebase
           @"
+          status=success
           run_id=${{ github.run_id }}
           artifact=Suno_Original_Demo_v0.1.0_Windows
           exe=Suno_Original_Demo_v0.1.0.exe
           source_sha=${{ github.sha }}
           "@ | Set-Content -Encoding UTF8 build_status/suno_original_demo.txt
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add build_status/suno_original_demo.txt
-          git commit -m "Record Suno original demo build ${{ github.run_id }}" || exit 0
+          git commit -m "Finish Suno original demo build ${{ github.run_id }}" || exit 0
           git push
