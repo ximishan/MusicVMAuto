@@ -1,7 +1,7 @@
 {
   "name": "suno-original-demo",
-  "version": "0.1.0",
-  "description": "Standalone Suno original-song demo with 3 persistent account slots",
+  "version": "0.1.1",
+  "description": "Standalone Suno original-song demo with 3 persistent account slots and automatic verification resume",
   "main": "main.js",
   "author": "",
   "license": "MIT",
@@ -20,7 +20,7 @@
     "files": ["main.js", "preload.js", "index.html", "renderer.js", "package.json"],
     "win": {
       "target": [{"target": "portable", "arch": ["x64"]}],
-      "artifactName": "Suno_Original_Demo_v0.1.0.exe"
+      "artifactName": "Suno_Original_Demo_v0.1.1.exe"
     }
   }
 }
