@@ -44,6 +44,20 @@ function renderTask(task) {
 
 $('refreshAccounts').onclick = refreshAccounts;
 
+if (window.demoApi.onVerificationState) {
+  window.demoApi.onVerificationState((state) => {
+    const msg = state?.message || '';
+    if (state?.state === 'required') {
+      log(`检测到账号 ${state.slot} 需要 Suno 人机验证：${msg}`, 'err');
+    } else if (state?.state === 'waiting') {
+      log(msg || '等待人机验证完成……');
+    } else if (state?.state === 'passed') {
+      log(msg || '人机验证已通过，正在自动继续。', 'oktxt');
+      refreshAccounts();
+    }
+  });
+}
+
 $('submitBtn').onclick = async () => {
   const payload = {
     title: $('title').value,
