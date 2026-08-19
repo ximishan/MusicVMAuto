@@ -1,5 +1,5 @@
 status=started
-run_id=32212171105
-artifact=Suno_Original_Demo_v0.1.0_Windows
-exe=Suno_Original_Demo_v0.1.0.exe
-source_sha=0d6a1c078d9ceaaa9aa53cc174fd64458166b9fa
+run_id=32212190795
+artifact=Suno_Original_Demo_v0.1.1_Windows
+exe=Suno_Original_Demo_v0.1.1.exe
+source_sha=afd1c91d225e4749940e08848f4c7519fe464e44
