@@ -30,8 +30,8 @@ jobs:
           @"
           status=started
           run_id=${{ github.run_id }}
-          artifact=Suno_Original_Demo_v0.1.0_Windows
-          exe=Suno_Original_Demo_v0.1.0.exe
+          artifact=Suno_Original_Demo_v0.1.1_Windows
+          exe=Suno_Original_Demo_v0.1.1.exe
           source_sha=${{ github.sha }}
           "@ | Set-Content -Encoding UTF8 build_status/suno_original_demo.txt
           git config user.name "github-actions[bot]"
@@ -63,29 +63,30 @@ jobs:
       - name: Verify EXE
         shell: pwsh
         run: |
-          $exe = Get-Item 'dist\Suno_Original_Demo_v0.1.0.exe'
+          $exe = Get-Item 'dist\Suno_Original_Demo_v0.1.1.exe'
           if ($exe.Length -lt 50000000) { throw "EXE unexpectedly small: $($exe.Length)" }
           Write-Host "Built:" $exe.FullName $exe.Length
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Suno_Original_Demo_v0.1.0_Windows
-          path: suno_original_demo/dist/Suno_Original_Demo_v0.1.0.exe
+          name: Suno_Original_Demo_v0.1.1_Windows
+          path: suno_original_demo/dist/Suno_Original_Demo_v0.1.1.exe
           if-no-files-found: error
 
       - name: Publish test release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: suno-original-demo-v0.1.0
-          name: Suno Original Demo v0.1.0
+          tag_name: suno-original-demo-v0.1.1
+          name: Suno Original Demo v0.1.1
           prerelease: true
           make_latest: false
-          files: suno_original_demo/dist/Suno_Original_Demo_v0.1.0.exe
+          files: suno_original_demo/dist/Suno_Original_Demo_v0.1.1.exe
           body: |
-            First standalone Windows demo for Suno original-song creation.
-            Features: 3 persistent Suno account slots, custom title/lyrics/style, direct original submission, task status refresh.
-            Human verification is never bypassed; when Suno requests verification the account window is shown for manual completion.
+            Verification-flow test build.
+            When Suno requests human verification, the matching account window is brought to front and kept visible.
+            After the user completes Suno's official verification, the app detects clearance and automatically resumes the pending original-song submission.
+            The app does not solve, click through, or bypass CAPTCHA challenges.
 
       - name: Report successful build
         shell: pwsh
@@ -95,8 +96,8 @@ jobs:
           @"
           status=success
           run_id=${{ github.run_id }}
-          artifact=Suno_Original_Demo_v0.1.0_Windows
-          exe=Suno_Original_Demo_v0.1.0.exe
+          artifact=Suno_Original_Demo_v0.1.1_Windows
+          exe=Suno_Original_Demo_v0.1.1.exe
           source_sha=${{ github.sha }}
           "@ | Set-Content -Encoding UTF8 build_status/suno_original_demo.txt
           git add build_status/suno_original_demo.txt
